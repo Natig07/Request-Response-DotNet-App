@@ -1,0 +1,6 @@
+@ReqResApi_HostAddress = http://localhost:5269
+
+GET {{ReqResApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
