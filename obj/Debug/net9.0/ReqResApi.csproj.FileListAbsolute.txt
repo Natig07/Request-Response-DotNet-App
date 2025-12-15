@@ -295,3 +295,4 @@ C:\Users\Natig Alizada\Desktop\CIC Intern\Backend\ReqResApi\bin\Debug\net9.0\Swa
 C:\Users\Natig Alizada\Desktop\CIC Intern\Backend\ReqResApi\bin\Debug\net9.0\FluentValidation.dll
 C:\Users\Natig Alizada\Desktop\CIC Intern\Backend\ReqResApi\bin\Debug\net9.0\FluentValidation.AspNetCore.dll
 C:\Users\Natig Alizada\Desktop\CIC Intern\Backend\ReqResApi\bin\Debug\net9.0\FluentValidation.DependencyInjectionExtensions.dll
+C:\Users\Natig Alizada\Desktop\CIC Intern\Backend\ReqResApi\obj\Debug\net9.0\ReqResApi.sourcelink.json
