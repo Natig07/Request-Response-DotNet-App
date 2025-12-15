@@ -14,6 +14,8 @@ namespace Services
         Task UpdateAsync(int id, CreateRequestDto dto);
 
         Task<bool> DeleteAsync(int id);
-        Task ChangeReqStat(int id, int newStatusId);
+        Task ChangeReqStat(int Requestid, int UserId, int newStatusId);
+
+        Task TakeRequestAsync(int requestId, int executorId);
     }
 }

@@ -7,6 +7,7 @@ namespace Services
         Task<string?> RegisterAsync(RegisterDto dto);
         Task<AuthResponseDto?> LoginAsync(LoginDto dto);
         Task<AuthResponseDto?> RefreshTokenAsync(string refreshToken);
+        Task<bool> RenewPasswordAsync(int userId, RenewPasswordDto dto);
 
     }
 }

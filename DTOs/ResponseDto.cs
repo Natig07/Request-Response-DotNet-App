@@ -14,6 +14,8 @@ namespace DTOs
 
         public FileEntityDto? File { get; set; }
 
+        public DateTime CreatedAt { get; set; }
+
         public int UserId { get; set; }
         public UserDto? User { get; set; }
 
@@ -34,6 +36,7 @@ namespace DTOs
         public int UserId { get; set; }
 
         public IFormFile? File { get; set; }
+        public DateTime CreatedAt { get; set; }
 
     }
 
@@ -44,7 +47,7 @@ namespace DTOs
         public int RequestId { get; set; }
         public string? RequestText { get; set; }
         public string? ResStatusName { get; set; }
-
+        public DateTime CreatedAt { get; set; }
         public string? Username { get; set; }
         public string? Usersurname { get; set; }
         public int? FileId { get; set; }

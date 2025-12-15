@@ -10,6 +10,10 @@ using FluentValidation.AspNetCore;
 using FluentValidation;
 using Validators;
 using Models;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.AspNetCore.Identity;
+using Services.Interfaces;
+using Services.Implementations;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -32,6 +36,9 @@ builder.Services.AddScoped<IReqCategoryService, ReqCategoryService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<IRequestHistoryService, RequestHistoryService>();
+builder.Services.AddScoped<ICommentService, CommentService>();
 
 
 
@@ -77,6 +84,7 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 
+builder.Services.AddHttpContextAccessor();
 
 
 
@@ -89,7 +97,11 @@ builder.Services.AddAuthentication(options =>
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 });
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+builder.Services.AddAuthentication(options =>
+ {
+     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+ })
     .AddJwtBearer(options =>
     {
         options.RequireHttpsMetadata = false;
@@ -117,6 +129,18 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("RequireResponderRole", policy => policy.RequireRole("Responder", "Admin"));
 });
 
+//Cors
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAngularApp",
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:4200", "http://192.168.174.1:4200")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        });
+});
+
 var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
@@ -138,7 +162,13 @@ if (app.Environment.IsDevelopment())
 }
 
 
-app.UseStaticFiles();
+
+
+app.UseCors("AllowAngularApp");
+
+// Console.WriteLine("serving uploads from: " + Path.Combine(Directory.GetCurrentDirectory(), "uploads"));
+
+
 
 app.UseAuthentication();
 app.UseAuthorization();

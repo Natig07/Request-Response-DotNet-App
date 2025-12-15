@@ -3,17 +3,22 @@ using DTOs;
 using Models;
 using Exceptions;
 using Services;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Mvc;
 
 public class FileService : IFileService
 {
     private readonly FileDbContext _context;
     private readonly string _storagePath = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
+
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<FileService> _logger;
 
-    public FileService(FileDbContext context, ILogger<FileService> logger)
+    public FileService(FileDbContext context, ILogger<FileService> logger, IHttpContextAccessor httpContextAccessor)
     {
         _context = context;
         _logger = logger;
+        _httpContextAccessor = httpContextAccessor;
 
         if (!Directory.Exists(_storagePath))
         {
@@ -33,6 +38,7 @@ public class FileService : IFileService
             {
                 "application/pdf",
                 "image/jpeg",
+                "image/jpg",
                 "image/png"
             };
 
@@ -43,7 +49,7 @@ public class FileService : IFileService
             }
 
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            var allowedExtensions = new[] { ".pdf", ".jpg", ".jpeg", ".png", ".gif" };
+            var allowedExtensions = new[] { ".pdf", ".jpg", ".jpeg", ".png", };
 
             if (!allowedExtensions.Contains(extension))
             {
@@ -51,7 +57,7 @@ public class FileService : IFileService
                 throw new ValidationExceptionC("Invalid file extension. Only PDF or image files are allowed.");
             }
 
-            var fileName = Guid.NewGuid() + extension;
+            var fileName = file.FileName.Trim();
             var filePath = Path.Combine(_storagePath, fileName);
 
             using (var stream = new FileStream(filePath, FileMode.Create))
@@ -91,6 +97,11 @@ public class FileService : IFileService
     public async Task<FileEntityDto?> GetFileAsync(int id)
     {
         var file = await _context.Files.FindAsync(id);
+        // Console.WriteLine($"file path:{file!.FilePath}");
+
+        var request = _httpContextAccessor.HttpContext?.Request;
+        var scheme = request?.Scheme ?? "http";
+        var host = request?.Host.Value ?? "localhost:5269";
         if (file == null || file.isDeleted == true)
         {
             _logger.LogWarning("File not found (Id: {FileId})", id);
@@ -98,19 +109,21 @@ public class FileService : IFileService
         }
 
         _logger.LogInformation("Retrieved file metadata for Id: {FileId}", id);
+        // Console.WriteLine($"File name : {file.FileName}");
 
         return new FileEntityDto
         {
             Id = file.Id,
             FileName = file.FileName,
-            Url = $"/api/files/{file.Id}"
+            FilePath = file.FilePath,
+            Url = $"{scheme}://{host}/uploads/{file.FileName}"
         };
     }
 
     public async Task<Stream?> DownloadAsync(int id)
     {
         var file = await _context.Files.FindAsync(id);
-        if (file == null || file.isDeleted == true)
+        if (file == null || file.isDeleted)
         {
             _logger.LogWarning("Download failed. File not found (Id: {FileId})", id);
             throw new NotFoundException($"File with ID {id} was not found.");
@@ -119,7 +132,12 @@ public class FileService : IFileService
         try
         {
             _logger.LogInformation("File download started: {FileName} (Id: {FileId})", file.FileName, id);
-            return new FileStream(file.FilePath, FileMode.Open, FileAccess.Read);
+
+            var stream = new FileStream(file.FilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+
+
+            return stream;
         }
         catch (IOException ioEx)
         {
@@ -158,4 +176,8 @@ public class FileService : IFileService
             throw new ServiceUnavailableException("File storage is unavailable for deletion.");
         }
     }
+
+
+
+
 }

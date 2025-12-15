@@ -6,7 +6,7 @@ namespace Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class AuthController : ControllerBase
+    public class AuthController : BaseController
     {
         private readonly IAuthService _authService;
 
@@ -16,7 +16,7 @@ namespace Controllers
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register(RegisterDto dto)
+        public async Task<IActionResult> Register([FromForm] RegisterDto dto)
         {
             var result = await _authService.RegisterAsync(dto);
             if (result != null) return BadRequest(result);
@@ -41,5 +41,21 @@ namespace Controllers
 
             return Ok(response);
         }
+
+        [HttpPost("renew-password")]
+        public async Task<IActionResult> RenewPassword([FromBody] RenewPasswordDto dto)
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                await _authService.RenewPasswordAsync(userId, dto);
+                return Ok(new { message = "Password updated successfully." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
     }
 }

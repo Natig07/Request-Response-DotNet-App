@@ -22,6 +22,89 @@ namespace ReqResApi.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Models.Comment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AttachmentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RequestId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Text")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequestId");
+
+                    b.ToTable("Comments");
+                });
+
+            modelBuilder.Entity("Models.Report", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CloseDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ExecutorId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("FirstOperationDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("OperationTime")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ReqCategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ReqStatusId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RequestId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExecutorId");
+
+                    b.HasIndex("ReqCategoryId");
+
+                    b.HasIndex("ReqStatusId");
+
+                    b.HasIndex("RequestId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Reports");
+                });
+
             modelBuilder.Entity("Models.ReqCategory", b =>
                 {
                     b.Property<int>("Id")
@@ -73,6 +156,25 @@ namespace ReqResApi.Migrations
                     b.ToTable("Statuses");
                 });
 
+            modelBuilder.Entity("Models.ReqType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ReqTypes");
+                });
+
             modelBuilder.Entity("Models.Request", b =>
                 {
                     b.Property<int>("Id")
@@ -81,8 +183,17 @@ namespace ReqResApi.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ExecutorId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("FileId")
                         .HasColumnType("int");
+
+                    b.Property<string>("Header")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("ReqCategoryId")
                         .HasColumnType("int");
@@ -91,6 +202,9 @@ namespace ReqResApi.Migrations
                         .HasColumnType("int");
 
                     b.Property<int>("ReqStatusId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ReqTypeId")
                         .HasColumnType("int");
 
                     b.Property<string>("Text")
@@ -104,15 +218,58 @@ namespace ReqResApi.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ExecutorId");
+
                     b.HasIndex("ReqCategoryId");
 
                     b.HasIndex("ReqPriorityId");
 
                     b.HasIndex("ReqStatusId");
 
+                    b.HasIndex("ReqTypeId");
+
                     b.HasIndex("UserId");
 
                     b.ToTable("Requests");
+                });
+
+            modelBuilder.Entity("Models.RequestHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NewValue")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OldValue")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("RequestId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequestId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("RequestHistories");
                 });
 
             modelBuilder.Entity("Models.ResStatus", b =>
@@ -138,6 +295,9 @@ namespace ReqResApi.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<int?>("FileId")
                         .HasColumnType("int");
@@ -193,10 +353,26 @@ namespace ReqResApi.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("AllowNotification")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Department")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Email")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("MobTelNumber")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Name")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OfficeTelNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.PrimitiveCollection<string>("OldPasswordHashes")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PasswordHash")
@@ -204,6 +380,9 @@ namespace ReqResApi.Migrations
 
                     b.Property<string>("Position")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ProfilePhotoId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Surname")
                         .HasColumnType("nvarchar(max)");
@@ -268,8 +447,65 @@ namespace ReqResApi.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
+            modelBuilder.Entity("Models.Comment", b =>
+                {
+                    b.HasOne("Models.Request", "Request")
+                        .WithMany("Comments")
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+                });
+
+            modelBuilder.Entity("Models.Report", b =>
+                {
+                    b.HasOne("Models.User", "Executor")
+                        .WithMany()
+                        .HasForeignKey("ExecutorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Models.ReqCategory", "ReqCategory")
+                        .WithMany()
+                        .HasForeignKey("ReqCategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Models.ReqStatus", "ReqStatus")
+                        .WithMany()
+                        .HasForeignKey("ReqStatusId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Models.Request", "Request")
+                        .WithMany()
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Executor");
+
+                    b.Navigation("ReqCategory");
+
+                    b.Navigation("ReqStatus");
+
+                    b.Navigation("Request");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Models.Request", b =>
                 {
+                    b.HasOne("Models.User", "Executor")
+                        .WithMany()
+                        .HasForeignKey("ExecutorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Models.ReqCategory", "ReqCategory")
                         .WithMany()
                         .HasForeignKey("ReqCategoryId")
@@ -288,17 +524,46 @@ namespace ReqResApi.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Models.ReqType", "ReqType")
+                        .WithMany()
+                        .HasForeignKey("ReqTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("Executor");
+
                     b.Navigation("ReqCategory");
 
                     b.Navigation("ReqPriority");
 
                     b.Navigation("ReqStatus");
+
+                    b.Navigation("ReqType");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Models.RequestHistory", b =>
+                {
+                    b.HasOne("Models.Request", "Request")
+                        .WithMany()
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Request");
 
                     b.Navigation("User");
                 });
@@ -362,6 +627,8 @@ namespace ReqResApi.Migrations
 
             modelBuilder.Entity("Models.Request", b =>
                 {
+                    b.Navigation("Comments");
+
                     b.Navigation("Response");
                 });
 

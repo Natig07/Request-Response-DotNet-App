@@ -14,23 +14,29 @@ public class RequestService : IRequestService
     private readonly ILogger<RequestService> _logger;
     private readonly IFileService _fileService;
 
+    private IRequestHistoryService _historyService;
+
     public RequestService(
         AppDbContext context,
         FileDbContext fileDbContext,
         IMapper mapper,
         IFileService fileService,
-        ILogger<RequestService> logger)
+        ILogger<RequestService> logger,
+        IRequestHistoryService requestHistoryService
+        )
     {
         _context = context;
         _mapper = mapper;
         _fileService = fileService;
         _logger = logger;
         _fileDbcontext = fileDbContext;
+        _historyService = requestHistoryService;
     }
 
     public async Task<RequestDto> CreateReqAsync(CreateRequestDto dto)
     {
         _logger.LogInformation("Creating new request for user {UserId}", dto.UserId);
+        _logger.LogInformation("User dto before saving:{@Dto}", dto);
 
         var request = _mapper.Map<Request>(dto);
         request.ReqStatusId = (int)RequestStatus.New;
@@ -53,6 +59,7 @@ public class RequestService : IRequestService
             .Include(r => r.User)
             .Include(r => r.ReqCategory)
             .Include(r => r.ReqPriority)
+            .Include(r => r.ReqType)
             .Include(r => r.ReqStatus)
             .Include(r => r.Response)
             .FirstOrDefaultAsync(r => r.Id == request.Id);
@@ -69,6 +76,13 @@ public class RequestService : IRequestService
             dtoResult.File = file == null ? null : new FileEntityDto { Id = file.Id, FileName = file.FileName };
         }
         _logger.LogInformation("Request {RequestId} created successfully", request.Id);
+
+        await _historyService.AddHistoryAsync(
+                request.Id,
+                savedRequest.User!.Id,
+                "Status dəyişdirildi",
+                "Yeni sorğu yaratdı"
+            );
         return dtoResult;
     }
 
@@ -89,8 +103,11 @@ public class RequestService : IRequestService
         try
         {
             if (request.Response != null)
+            {
                 request.Response.isDeleted = true;
+            }
 
+            // Mark request file as deleted
             if (request.FileId.HasValue)
             {
                 var file = await _fileDbcontext.Files.FindAsync(request.FileId.Value);
@@ -103,6 +120,7 @@ public class RequestService : IRequestService
                 }
             }
 
+            // Mark request as deleted
             request.isDeleted = true;
             await _context.SaveChangesAsync();
 
@@ -128,15 +146,23 @@ public class RequestService : IRequestService
                 .Include(r => r.ReqCategory)
                 .Include(r => r.ReqPriority)
                 .Include(r => r.ReqStatus)
+                .Include(r => r.Executor)
                 .Select(r => new OutRequestDto
                 {
+                    Id = r.Id,
                     Text = r.Text,
+                    Header = r.Header,
                     Username = r.User != null ? r.User.Name : null,
                     Usersurname = r.User != null ? r.User.Surname : null,
+                    RequestTypeName = r.ReqType != null ? r.ReqType.Name : null,
                     CategoryName = r.ReqCategory != null ? r.ReqCategory.Name : null,
                     StatusName = r.ReqStatus != null ? r.ReqStatus.Name : null,
+                    CreatedAt = r.CreatedAt,
                     PriorityName = r.ReqPriority != null ? r.ReqPriority.Level : null,
-                    FileId = r.FileId
+                    FileId = r.FileId,
+                    ExecutorName = r.Executor != null ? r.Executor.Name : null,
+                    ExecutorSurname = r.Executor != null ? r.Executor.Surname : null,
+
                 })
                 .ToListAsync();
 
@@ -162,11 +188,15 @@ public class RequestService : IRequestService
             .Where(r => r.Id == id && !r.isDeleted)
             .Select(r => new OutRequestDto
             {
+                Id = r.Id,
                 Text = r.Text,
+                Header = r.Header,
                 Username = r.User != null ? r.User.Name : null,
                 Usersurname = r.User != null ? r.User.Surname : null,
                 CategoryName = r.ReqCategory != null ? r.ReqCategory.Name : null,
                 StatusName = r.ReqStatus != null ? r.ReqStatus.Name : null,
+                RequestTypeName = r.ReqType != null ? r.ReqType.Name : null,
+                CreatedAt = r.CreatedAt,
                 PriorityName = r.ReqPriority != null ? r.ReqPriority.Level : null,
                 FileId = r.FileId
             })
@@ -201,6 +231,7 @@ public class RequestService : IRequestService
         bool isModified = existingRequest.UserId != dto.UserId
         || existingRequest.ReqCategoryId != dto.ReqCategoryId
         || existingRequest.ReqPriorityId != dto.ReqPriorityId
+        || existingRequest.Header != dto.Header || existingRequest.ReqTypeId != dto.ReqTypeId
         || existingRequest.Text != dto.Text
         || dto.File != null;
         if (!isModified)
@@ -213,6 +244,8 @@ public class RequestService : IRequestService
             existingRequest.UserId = dto.UserId;
             existingRequest.ReqCategoryId = dto.ReqCategoryId;
             existingRequest.ReqPriorityId = dto.ReqPriorityId;
+            existingRequest.Header = dto.Header;
+            existingRequest.ReqTypeId = dto.ReqTypeId;
             existingRequest.Text = dto.Text;
             if (dto.File != null)
             {
@@ -240,38 +273,70 @@ public class RequestService : IRequestService
 
 
 
-    public async Task ChangeReqStat(int requestId, int newStatusId)
+    public async Task ChangeReqStat(int requestId, int newStatusId, int UserId)
     {
-        _logger.LogInformation("Changing status of request {RequestId} to {NewStatusId}", requestId, newStatusId);
+        _logger.LogInformation("Changing status for request {RequestId} to {NewStatusId}", requestId, newStatusId);
 
-        var existingRequest = await _context.Requests.FindAsync(requestId);
+        var existingRequest = await _context.Requests
+            .Include(r => r.ReqStatus)
+            .FirstOrDefaultAsync(r => r.Id == requestId);
+
         if (existingRequest == null || existingRequest.isDeleted)
         {
-            _logger.LogWarning("Request {RequestId} not found", requestId);
-            throw new NotFoundException($"Request with ID {requestId} not found.");
+            throw new NotFoundException($"Request with ID {requestId} not found");
         }
 
-        bool statusExists = await _context.Statuses.AnyAsync(s => s.Id == newStatusId);
-        if (!statusExists)
-        {
-            throw new BadRequestException($"Status with ID {newStatusId} does not exist.");
-        }
+        var oldStatusId = existingRequest.ReqStatusId;
 
         existingRequest.ReqStatusId = newStatusId;
 
         try
         {
             await _context.SaveChangesAsync();
-            _logger.LogInformation("Request {RequestId} status updated to {NewStatusId}", requestId, newStatusId);
 
+            var action = string.Empty;
+
+            if (newStatusId == 2 && oldStatusId == 1)
+            {
+                action = "Sorğunu öz üzərinə götürdü";
+            }
+            else if (newStatusId == 6)
+            {
+                action = "Sorğunu bağladı";
+            }
+            else if (newStatusId == 5)
+            {
+                action = "Sorğunu gözləməyə aldı";
+            }
+            else if (newStatusId == 4)
+            {
+                action = "Sorğudan imtina etdi";
+            }
+            else if (newStatusId == 1)
+            {
+                action = "Sorğunu açdı";
+            }
+            else
+            {
+                action = "Sorğunu icraya aldı";
+            }
+
+
+            await _historyService.AddHistoryAsync(
+                requestId,
+                UserId,
+                "Status dəyişdirildi",
+                action
+            );
+
+            _logger.LogInformation("Status changed successfully for request {RequestId}", requestId);
         }
         catch (DbUpdateException dbEx)
         {
-            _logger.LogError(dbEx, "Database error while updating status for request {RequestId}", requestId);
-            throw new InternalServerException("Could not update request status due to database error.");
+            _logger.LogError(dbEx, "Database error while changing status for request {RequestId}", requestId);
+            throw new InternalServerException("Could not change request status due to database error.");
         }
     }
-
     public async Task<IEnumerable<OutRequestDto>> GetByCategoryAsync(int Id)
     {
         var requests = await _context.Requests
@@ -282,12 +347,16 @@ public class RequestService : IRequestService
         .Where(r => r.ReqCategoryId == Id && !r.isDeleted)
         .Select(r => new OutRequestDto
         {
+            Id = r.Id,
             Text = r.Text,
+            Header = r.Header,
             Username = r.User != null ? r.User.Name : null,
             Usersurname = r.User != null ? r.User.Surname : null,
             CategoryName = r.ReqCategory != null ? r.ReqCategory.Name : null,
             StatusName = r.ReqStatus != null ? r.ReqStatus.Name : null,
             PriorityName = r.ReqPriority != null ? r.ReqPriority.Level : null,
+            RequestTypeName = r.ReqType != null ? r.ReqType.Name : null,
+            CreatedAt = r.CreatedAt,
             FileId = r.FileId
         })
         .ToListAsync();
@@ -297,35 +366,35 @@ public class RequestService : IRequestService
 
     public async Task<RequestDto> GetReqResByIdAsync(int id)
     {
-        _logger.LogInformation("Fetching response for request {RequestId}", id);
+        _logger.LogInformation("Fetching request {RequestId} with all responses", id);
+
         var request = await _context.Requests
-        .Include(r => r.User)
-        .ThenInclude(u => u!.UserRoles)
-        .ThenInclude(ur => ur.Role)
-        .Include(r => r.ReqCategory)
-        .Include(r => r.ReqPriority)
-        .Include(r => r.ReqStatus)
-        .Include(r => r.Response)
-        .ThenInclude(resp => resp!.ResStatus)
-        .Include(r => r.Response)
-        .ThenInclude(resp => resp!.User)
-        .ThenInclude(u => u!.UserRoles)
-        .ThenInclude(ur => ur.Role)
-        .FirstOrDefaultAsync(r => r.Id == id && !r.isDeleted);
+            .Include(r => r.User)
+            .ThenInclude(u => u!.UserRoles)
+            .ThenInclude(ur => ur.Role)
+            .Include(r => r.ReqCategory)
+            .Include(r => r.ReqPriority)
+            .Include(r => r.ReqStatus)
+            .Include(r => r.ReqType)
+            .Include(r => r.Executor)
+            .Include(r => r.Response)
+                .ThenInclude(resp => resp!.ResStatus)
+            .Include(r => r.Response)
+                .ThenInclude(resp => resp!.User)
+                .ThenInclude(u => u!.UserRoles)
+                .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(r => r.Id == id && !r.isDeleted);
+
         if (request == null)
         {
             _logger.LogWarning("Request {RequestId} not found", id);
             throw new NotFoundException("Request not found");
         }
-        if (request.Response != null && request.Response.isDeleted)
-            request.Response = null;
-
-        _logger.LogInformation("Response for Request {RequestId} retrieved successfully", id);
-
 
         var dtoResult = _mapper.Map<RequestDto>(request);
 
-        if (request!.FileId.HasValue)
+        // Attach file info for request
+        if (request.FileId.HasValue)
         {
             var file = await _fileService.GetFileAsync(request.FileId.Value);
             dtoResult.File = file == null ? null : new FileEntityDto
@@ -336,20 +405,55 @@ public class RequestService : IRequestService
             };
         }
 
-        if (request.Response!.FileId.HasValue)
+        if (request.User?.ProfilePhotoId != null)
         {
-            var file = await _fileService.GetFileAsync(request.Response.FileId.Value);
-            dtoResult.Response!.File = file == null ? null : new FileEntityDto
-            {
-                Id = file.Id,
-                FileName = file.FileName,
-                Url = $"/api/files/{file.Id}"
-            };
+            var userPhoto = await _fileService.GetFileAsync(request.User.ProfilePhotoId.Value);
+
+            dtoResult.User!.ProfilePhoto = userPhoto;
+        }
+
+        if (request.Executor != null)
+        {
+            dtoResult.Executor = _mapper.Map<UserDto>(request.Executor);
+            dtoResult.ExecutorId = request.ExecutorId;
         }
 
 
+        _logger.LogInformation("Request {RequestId} with all responses retrieved successfully", id);
         return dtoResult;
     }
+
+    public async Task TakeRequestAsync(int requestId, int executorId)
+    {
+        _logger.LogInformation("User {ExecutorId} is trying to take request {RequestId}", executorId, requestId);
+
+        var request = await _context.Requests
+            .Include(r => r.Executor)
+            .FirstOrDefaultAsync(r => r.Id == requestId && !r.isDeleted);
+
+        if (request == null)
+            throw new NotFoundException("Request not found");
+
+        if (request.ExecutorId != null)
+            throw new BadRequestException("This request is already taken by another user");
+
+        request.ExecutorId = executorId;
+
+
+        request.ReqStatusId = 2;
+        try
+        {
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Request {RequestId} successfully taken by {ExecutorId}", requestId, executorId);
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Error while taking request {RequestId}", requestId);
+            throw new InternalServerException("Could not take request due to database error.");
+        }
+    }
+
 
 
 }

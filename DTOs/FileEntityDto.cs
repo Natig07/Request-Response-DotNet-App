@@ -14,7 +14,10 @@ namespace DTOs
         public int Id { get; set; }
         public string FileName { get; set; } = null!;
 
+        public string FilePath { get; set; } = string.Empty;
+
         public string Url { get; set; } = null!;
+        public string ContentType { get; set; } = null!;
     }
 
 }

@@ -1,6 +1,7 @@
 using Data;
 using DTOs;
 using Exceptions;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -15,17 +16,19 @@ public class AuthService : IAuthService
 {
     private readonly AppDbContext _context;
     private readonly IConfiguration _config;
-
+    private readonly IFileService _fileService;
     private readonly IEmailService _emailService;
     private readonly ILogger<AuthService> _logger;
 
-    public AuthService(AppDbContext context, IConfiguration config, IEmailService emailService, ILogger<AuthService> logger)
+    public AuthService(AppDbContext context, IConfiguration config, IEmailService emailService, IFileService fileService, ILogger<AuthService> logger)
     {
         _context = context;
         _config = config;
+        _fileService = fileService;
         _emailService = emailService;
         _logger = logger;
     }
+
 
     public async Task<string?> RegisterAsync(RegisterDto dto)
     {
@@ -36,7 +39,20 @@ public class AuthService : IAuthService
         {
             _logger.LogWarning("Registration failed. Email {Email} already in use.", dto.Email);
             throw new ConflictException($"Email '{dto.Email}' is already in use.");
+        }
 
+
+        int? fileId = null;
+        if (dto.ProfilePhoto != null)
+        {
+            var ext = Path.GetExtension(dto.ProfilePhoto.FileName).ToLowerInvariant();
+            if (ext != ".jpg" && ext != ".jpeg" && ext != ".png")
+            {
+                throw new BadRequestException("Only JPG, JPEG, and PNG files are allowed for profile photos.");
+            }
+
+            _logger.LogInformation("Uploading profile photo for user {Email}", dto.Email);
+            fileId = await _fileService.UploadAsync(dto.ProfilePhoto);
         }
 
         var user = new User
@@ -48,7 +64,12 @@ public class AuthService : IAuthService
             Email = dto.Email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
             isDeleted = false,
-            UserRoles = new List<UserRole>()
+            UserRoles = new List<UserRole>(),
+            ProfilePhotoId = fileId,
+            Department = dto.Department,
+            MobTelNumber = dto.MobTelNumber,
+            OfficeTelNumber = dto.OfficeTelNumber,
+            AllowNotification = dto.AllowNotification
         };
 
         _context.Users.Add(user);
@@ -61,16 +82,18 @@ public class AuthService : IAuthService
         });
 
         await _context.SaveChangesAsync();
+
         await _emailService.SendEmailAsync(user.Email!,
             "Welcome to ReqRes App",
             $"<h3>Hello {user.Name},</h3><p>Your account has been created successfully.</p>"
         );
 
+
+
         _logger.LogInformation("User {UserId} registered successfully with email {Email}", user.Id, user.Email);
-
-
         return null;
     }
+
 
     public async Task<AuthResponseDto?> LoginAsync(LoginDto dto)
     {
@@ -90,7 +113,7 @@ public class AuthService : IAuthService
         if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
         {
             _logger.LogWarning("Login failed. Invalid password for username {Username}", dto.Username);
-            throw new UnauthorizedException("Invalid username or password.");
+            throw new UnauthorizedException("Invalid username or password!");
         }
 
         var accessToken = GenerateAccessToken(user);
@@ -103,9 +126,17 @@ public class AuthService : IAuthService
 
         return new AuthResponseDto
         {
+            UserID = user.Id,
             Token = accessToken,
             RefreshToken = refreshToken.Token,
             Expires = DateTime.UtcNow.AddMinutes(_config.GetValue<int>("Jwt:ExpireMinutes")),
+            FirstName = user.Name!,
+            LastName = user.Surname!,
+            Department = user.Department,
+            MobTelNumber = user.MobTelNumber,
+            OfficeTelNumber = user.OfficeTelNumber,
+            AllowNotification = user.AllowNotification
+
         };
     }
 
@@ -194,6 +225,54 @@ public class AuthService : IAuthService
             Created = DateTime.UtcNow,
             UserId = userId
         };
+    }
+
+    public async Task<bool> RenewPasswordAsync(int userId, RenewPasswordDto dto)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+            throw new Exception("User not found.");
+
+        // Verify old password
+        if (!BCrypt.Net.BCrypt.Verify(dto.OldPassword, user.PasswordHash))
+            throw new Exception("Əvvəlki şifrə yalnışdır!");
+
+
+        // Check password length
+        if (dto.NewPassword.Length < 8)
+            throw new Exception("Şifrə ən azı 8 simvol uzunluğunda olmalıdır!");
+
+        // Check if it's only digits
+        if (dto.NewPassword.All(char.IsDigit))
+            throw new Exception("Şifrə yalnız rəqəmlərdən ibarət ola bilməz!");
+
+        //Check if it contains any letter
+        if (!dto.NewPassword.Any(char.IsLetter))
+            throw new Exception("Şifrədə ən azı bir hərf olmalıdır!");
+
+        // Check if password was used before
+        foreach (var oldHash in user.OldPasswordHashes)
+        {
+            if (BCrypt.Net.BCrypt.Verify(dto.NewPassword, oldHash))
+                throw new Exception("Əvvəl istifadə edilmiş şifrəni təkrar istifadə etmək olmaz.");
+        }
+
+
+
+        // Confirm new passwords match
+        if (dto.NewPassword != dto.RepeatNewPassword)
+            throw new Exception("Yeni şifrələr uyğun gəlmir.");
+
+
+        // Store current password into history
+        user.OldPasswordHashes.Add(user.PasswordHash!);
+
+        // Hash and save the new password
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+        _context.Users.Update(user);
+        await _context.SaveChangesAsync();
+
+        return true;
     }
 
 

@@ -11,12 +11,19 @@ namespace Data
         public DbSet<ReqCategory> Categories { get; set; }
         public DbSet<ReqStatus> Statuses { get; set; }
         public DbSet<ReqPriority> Priorities { get; set; }
+        public DbSet<ReqType> ReqTypes { get; set; }
         public DbSet<User> Users { get; set; }
 
         public DbSet<Response> Responses { get; set; }
         public DbSet<UserRole> UserRoles { get; set; }
 
         public DbSet<RefreshToken> RefreshTokens { get; set; }
+
+        public DbSet<Report> Reports { get; set; }
+
+        public DbSet<RequestHistory> RequestHistories { get; set; }
+
+        public DbSet<Comment> Comments { get; set; }
 
 
 
@@ -37,6 +44,11 @@ namespace Data
                 .HasForeignKey(r => r.ReqCategoryId);
 
             modelBuilder.Entity<Request>()
+                .HasOne(r => r.ReqType)
+                .WithMany()
+                .HasForeignKey(r => r.ReqTypeId);
+
+            modelBuilder.Entity<Request>()
                 .HasOne(r => r.ReqPriority)
                 .WithMany()
                 .HasForeignKey(r => r.ReqPriorityId);
@@ -45,6 +57,13 @@ namespace Data
                 .HasOne(r => r.ReqStatus)
                 .WithMany()
                 .HasForeignKey(r => r.ReqStatusId);
+
+            modelBuilder.Entity<Request>()
+                .HasOne(r => r.Executor)
+                .WithMany()
+                .HasForeignKey(r => r.ExecutorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
 
 
 
@@ -82,7 +101,70 @@ namespace Data
                 .WithMany(r => r.UserRoles)
                 .HasForeignKey(ur => ur.RoleId);
 
+
+            // Report Entity Configuration
+            modelBuilder.Entity<Report>()
+                .HasKey(r => r.Id);
+
+            // Report -> User (Sender)
+            modelBuilder.Entity<Report>()
+                .HasOne(r => r.User)
+                .WithMany()
+                .HasForeignKey(r => r.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Report -> ReqCategory
+            modelBuilder.Entity<Report>()
+                .HasOne(r => r.ReqCategory)
+                .WithMany()
+                .HasForeignKey(r => r.ReqCategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Report -> ReqStatus
+            modelBuilder.Entity<Report>()
+                .HasOne(r => r.ReqStatus)
+                .WithMany()
+                .HasForeignKey(r => r.ReqStatusId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Report -> Executor (User)
+            modelBuilder.Entity<Report>()
+                .HasOne(r => r.Executor)
+                .WithMany()
+                .HasForeignKey(r => r.ExecutorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Report -> Request (Optional relationship)
+            modelBuilder.Entity<Report>()
+                .HasOne(r => r.Request)
+                .WithMany()
+                .HasForeignKey(r => r.RequestId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false);
+
+            modelBuilder.Entity<RequestHistory>()
+                    .HasKey(rh => rh.Id);
+
+            modelBuilder.Entity<RequestHistory>()
+                    .HasOne(rh => rh.Request)
+                    .WithMany()
+                    .HasForeignKey(rh => rh.RequestId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<RequestHistory>()
+                .HasOne(rh => rh.User)
+                .WithMany()
+                .HasForeignKey(rh => rh.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Request>()
+                .HasMany(r => r.Comments)
+                .WithOne(c => c.Request)
+                .HasForeignKey(c => c.RequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+
         }
+
 
 
     }

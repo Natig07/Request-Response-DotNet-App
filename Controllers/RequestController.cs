@@ -67,7 +67,7 @@ namespace Controllers
                 created.File.Url = $"{Request.Scheme}://{Request.Host}/api/files/{created.File.Id}";
             }
 
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+            return Ok(created);
         }
 
 
@@ -88,11 +88,20 @@ namespace Controllers
             return NoContent();
         }
         [Authorize]
-        [HttpPut("requests/{requestId}/status/{newStatusId}")]
-        public async Task ChangeReqStat(int requestId, int newStatusId)
+        [HttpPut("{requestId}/status/{newStatusId}/{UserId}")]
+        public async Task ChangeReqStat(int requestId, int newStatusId, int UserId)
         {
-            await _requestService.ChangeReqStat(requestId, newStatusId);
+            await _requestService.ChangeReqStat(requestId, newStatusId, UserId);
         }
+
+        [HttpPut("take/{executorId}/{reqId}")]
+        public async Task<IActionResult> TakeRequest(int executorId, int reqId)
+        {
+            await _requestService.TakeRequestAsync(reqId, executorId);
+
+            return Ok(new { message = "Request successfully taken" });
+        }
+
 
 
     }
