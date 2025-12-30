@@ -583,7 +583,6 @@ public class RequestService : IRequestService
 
         var baseQuery = _context.Requests
             .Include(r => r.User)
-                .ThenInclude(u => u!.ProfilePhotoId)
             .Include(r => r.ReqCategory)
             .Include(r => r.ReqPriority)
             .Include(r => r.ReqStatus)
@@ -598,7 +597,6 @@ public class RequestService : IRequestService
                 var requestWithComments = await baseQuery
                     .Include(r => r.Response)
                         .ThenInclude(resp => resp!.User)
-                        .ThenInclude(u => u!.ProfilePhotoId)
                     .FirstOrDefaultAsync();
 
                 if (requestWithComments == null)
@@ -611,7 +609,6 @@ public class RequestService : IRequestService
                 var requestComments = await baseQuery
                     .Include(r => r.Response)
                         .ThenInclude(resp => resp!.User)
-                        .ThenInclude(u => u!.ProfilePhotoId)
                     .FirstOrDefaultAsync();
 
                 if (requestComments == null)
