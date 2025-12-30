@@ -127,6 +127,19 @@ namespace Data
                 .HasForeignKey(r => r.ReqStatusId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Report -> ReqType
+            modelBuilder.Entity<Report>()
+                .HasOne(r => r.ReqType)
+                .WithMany()
+                .HasForeignKey(r => r.ReqTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Report -> ReqPriority
+            modelBuilder.Entity<Report>()
+                .HasOne(r => r.ReqPriority)
+                .WithMany()
+                .HasForeignKey(r => r.ReqPriorityId)
+                .OnDelete(DeleteBehavior.Restrict);
             // Report -> Executor (User)
             modelBuilder.Entity<Report>()
                 .HasOne(r => r.Executor)
@@ -139,8 +152,7 @@ namespace Data
                 .HasOne(r => r.Request)
                 .WithMany()
                 .HasForeignKey(r => r.RequestId)
-                .OnDelete(DeleteBehavior.SetNull)
-                .IsRequired(false);
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<RequestHistory>()
                     .HasKey(rh => rh.Id);

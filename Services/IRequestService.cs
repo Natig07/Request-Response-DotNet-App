@@ -17,5 +17,9 @@ namespace Services
         Task ChangeReqStat(int Requestid, int UserId, int newStatusId);
 
         Task TakeRequestAsync(int requestId, int executorId);
+
+        Task<PagedResult<OutRequestDto>> GetFilteredAsync(RequestFilterDto filter);
+        Task<RequestDto> GetRequestWithDetails(int requestId, string section);
+        Task<int> GetCommentCountAsync(int requestId);
     }
 }

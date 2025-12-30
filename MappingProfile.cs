@@ -1,5 +1,6 @@
 using AutoMapper;
 using DTOs;
+using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.Blazor;
 using Models;
 
 public class MappingProfile : Profile
@@ -11,8 +12,13 @@ public class MappingProfile : Profile
         CreateMap<CreateRequestDto, Request>()
             .ForMember(dest => dest.FileId, opt => opt.Ignore());
 
+
+        CreateMap<CreateReportDto, Report>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.isDeleted, opt => opt.MapFrom(_ => false));
+
         CreateMap<Report, ReportDto>();
-        CreateMap<CreateReportDto, Report>();
+        CreateMap<Report, OutReportDto>();
 
         CreateMap<User, UserDto>();
         CreateMap<CreateUserDto, User>();

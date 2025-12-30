@@ -4,6 +4,7 @@ using Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ReqResApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251226130200_InitialCreateMg")]
+    partial class InitialCreateMg
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -63,13 +66,6 @@ namespace ReqResApi.Migrations
                     b.Property<DateTime?>("CloseDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Code")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Communication")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -78,9 +74,6 @@ namespace ReqResApi.Migrations
 
                     b.Property<DateTime?>("FirstOperationDate")
                         .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsRoutine")
-                        .HasColumnType("bit");
 
                     b.Property<int?>("OperationTime")
                         .HasColumnType("int");
@@ -103,23 +96,10 @@ namespace ReqResApi.Migrations
                     b.Property<int?>("RequestId")
                         .HasColumnType("int");
 
-                    b.Property<string>("RequestSender")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("Result")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("RootCause")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("SolmanReqNumber")
-                        .HasColumnType("int");
-
                     b.Property<string>("Solution")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("UserId")
@@ -233,9 +213,6 @@ namespace ReqResApi.Migrations
 
                     b.Property<int?>("FileId")
                         .HasColumnType("int");
-
-                    b.Property<DateTime?>("FirstOperationDate")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("Header")
                         .HasColumnType("nvarchar(max)");

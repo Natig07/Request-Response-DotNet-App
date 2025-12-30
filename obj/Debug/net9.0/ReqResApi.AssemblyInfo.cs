@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ReqResApi")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f4e3612dcc8f655a62712069dbc7fac6c26d5ce5")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fa621d9264670ca7874985b89409bec3b1d924dc")]
 [assembly: System.Reflection.AssemblyProductAttribute("ReqResApi")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ReqResApi")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

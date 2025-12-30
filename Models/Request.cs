@@ -32,6 +32,9 @@ namespace Models
 
         public bool isDeleted { get; set; }
 
+        public DateTime? FirstOperationDate { get; set; }
+
+
         public Response? Response { get; set; }
 
         public ICollection<Comment> Comments { get; set; } = new List<Comment>();

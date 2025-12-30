@@ -302,6 +302,13 @@ public class RequestService : IRequestService
             }
             else if (newStatusId == 6)
             {
+                var report = await _context.Reports.FirstOrDefaultAsync(r => r.RequestId == requestId && !r.isDeleted);
+
+                if (report != null)
+                {
+                    report.ReqStatusId = newStatusId;
+                    report.CloseDate = DateTime.UtcNow;
+                }
                 action = "Sorğunu bağladı";
             }
             else if (newStatusId == 5)
@@ -441,6 +448,11 @@ public class RequestService : IRequestService
 
 
         request.ReqStatusId = 2;
+
+        if (request.FirstOperationDate == null)
+        {
+            request.FirstOperationDate = DateTime.UtcNow;
+        }
         try
         {
             await _context.SaveChangesAsync();
@@ -453,6 +465,202 @@ public class RequestService : IRequestService
             throw new InternalServerException("Could not take request due to database error.");
         }
     }
+
+    public async Task<PagedResult<OutRequestDto>> GetFilteredAsync(RequestFilterDto filter)
+    {
+
+        var baseQuery = _context.Requests
+            .Where(r => !r.isDeleted)
+            .AsQueryable();
+
+
+        if (filter.CategoryId.HasValue)
+            baseQuery = baseQuery.Where(r => r.ReqCategoryId == filter.CategoryId);
+
+        if (filter.PriorityId.HasValue)
+            baseQuery = baseQuery.Where(r => r.ReqPriorityId == filter.PriorityId);
+
+        if (filter.ExecutorId.HasValue)
+            baseQuery = baseQuery.Where(r => r.ExecutorId == filter.ExecutorId);
+
+        if (filter.FromDate.HasValue)
+            baseQuery = baseQuery.Where(r => r.CreatedAt >= filter.FromDate.Value);
+
+        if (filter.ToDate.HasValue)
+            baseQuery = baseQuery.Where(r => r.CreatedAt <= filter.ToDate.Value);
+
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            var searchLower = filter.Search.ToLower();
+            baseQuery = baseQuery.Where(r =>
+                r.Header!.ToLower().Contains(searchLower) ||
+                r.Text!.ToLower().Contains(searchLower)
+            );
+        }
+
+        // 🔹 3. STATUS COUNTS (status filter olmadan)
+        var statusCounts = await baseQuery
+            .GroupBy(r => r.ReqStatus!.Name)
+            .Select(g => new
+            {
+                Status = g.Key,
+                Count = g.Count()
+            })
+            .ToDictionaryAsync(x => x.Status!, x => x.Count);
+
+        // 🔹 4. Main query (status filter BURADA)
+        var query = baseQuery;
+
+        if (filter.StatusId.HasValue)
+            query = query.Where(r => r.ReqStatusId == filter.StatusId);
+
+        // 🔹 5. Sorting
+        if (!string.IsNullOrEmpty(filter.SortField))
+        {
+            bool asc = filter.SortDirection?.ToLower() != "desc";
+
+            query = filter.SortField switch
+            {
+                "id" => asc ? query.OrderBy(r => r.Id) : query.OrderByDescending(r => r.Id),
+                "header" => asc ? query.OrderBy(r => r.Header) : query.OrderByDescending(r => r.Header),
+                "username" => asc ? query.OrderBy(r => r.User!.Name) : query.OrderByDescending(r => r.User!.Name),
+                "category" => asc ? query.OrderBy(r => r.ReqCategory!.Name) : query.OrderByDescending(r => r.ReqCategory!.Name),
+                "status" => asc ? query.OrderBy(r => r.ReqStatus!.Name) : query.OrderByDescending(r => r.ReqStatus!.Name),
+                "priority" => asc ? query.OrderBy(r => r.ReqPriority!.Level) : query.OrderByDescending(r => r.ReqPriority!.Level),
+                "executor" => asc ? query.OrderBy(r => r.Executor!.Name) : query.OrderByDescending(r => r.Executor!.Name),
+                "createdAt" => asc ? query.OrderBy(r => r.CreatedAt) : query.OrderByDescending(r => r.CreatedAt),
+                _ => query.OrderByDescending(r => r.CreatedAt)
+            };
+        }
+        else
+        {
+            query = query.OrderByDescending(r => r.CreatedAt);
+        }
+
+        // 🔹 6. Total count (status filter LI)
+        var totalCount = await query.CountAsync();
+
+        // 🔹 7. Pagination
+        var requests = await query
+            .Include(r => r.User)
+            .Include(r => r.ReqCategory)
+            .Include(r => r.ReqPriority)
+            .Include(r => r.ReqStatus)
+            .Include(r => r.Executor)
+            .Skip((filter.Page - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .Select(r => new OutRequestDto
+            {
+                Id = r.Id,
+                Header = r.Header,
+                Text = r.Text,
+                Username = r.User!.Name,
+                Usersurname = r.User!.Surname,
+                CategoryName = r.ReqCategory!.Name,
+                StatusName = r.ReqStatus!.Name,
+                PriorityName = r.ReqPriority!.Level,
+                RequestTypeName = r.ReqType!.Name,
+                ExecutorName = r.Executor != null ? r.Executor.Name : null,
+                ExecutorSurname = r.Executor != null ? r.Executor.Surname : null,
+                CreatedAt = r.CreatedAt,
+                FileId = r.FileId
+            })
+            .ToListAsync();
+
+        return new PagedResult<OutRequestDto>
+        {
+            Items = requests,
+            TotalCount = totalCount,
+            StatusCounts = statusCounts
+        };
+    }
+
+    // Add these methods to your RequestService class
+
+    public async Task<RequestDto> GetRequestWithDetails(int requestId, string section)
+    {
+        _logger.LogInformation("Fetching request {RequestId} with section {Section}", requestId, section);
+
+        var baseQuery = _context.Requests
+            .Include(r => r.User)
+                .ThenInclude(u => u!.ProfilePhotoId)
+            .Include(r => r.ReqCategory)
+            .Include(r => r.ReqPriority)
+            .Include(r => r.ReqStatus)
+            .Include(r => r.ReqType)
+            .Include(r => r.Executor)
+            .Where(r => r.Id == requestId && !r.isDeleted);
+
+        switch (section.ToLower())
+        {
+            case "request":
+                // Load request with responses/comments
+                var requestWithComments = await baseQuery
+                    .Include(r => r.Response)
+                        .ThenInclude(resp => resp!.User)
+                        .ThenInclude(u => u!.ProfilePhotoId)
+                    .FirstOrDefaultAsync();
+
+                if (requestWithComments == null)
+                    throw new NotFoundException("Request not found");
+
+                return _mapper.Map<RequestDto>(requestWithComments);
+
+            case "comment":
+                // Only load comments
+                var requestComments = await baseQuery
+                    .Include(r => r.Response)
+                        .ThenInclude(resp => resp!.User)
+                        .ThenInclude(u => u!.ProfilePhotoId)
+                    .FirstOrDefaultAsync();
+
+                if (requestComments == null)
+                    throw new NotFoundException("Request not found");
+
+                return _mapper.Map<RequestDto>(requestComments);
+
+            case "history":
+                // Load history via separate call
+                var requestHistory = await baseQuery.FirstOrDefaultAsync();
+
+                if (requestHistory == null)
+                    throw new NotFoundException("Request not found");
+
+                var dto = _mapper.Map<RequestDto>(requestHistory);
+                // History will be loaded separately via RequestHistoryService
+                return dto;
+
+            case "requestinfo":
+                // Load request info only (no responses/history)
+                var requestInfo = await baseQuery.FirstOrDefaultAsync();
+
+                if (requestInfo == null)
+                    throw new NotFoundException("Request not found");
+
+                return _mapper.Map<RequestDto>(requestInfo);
+
+            default:
+                // Default: load everything
+                var fullRequest = await baseQuery
+                    .Include(r => r.Response)
+                        .ThenInclude(resp => resp!.User)
+                    .FirstOrDefaultAsync();
+
+                if (fullRequest == null)
+                    throw new NotFoundException("Request not found");
+
+                return _mapper.Map<RequestDto>(fullRequest);
+        }
+    }
+
+    // Get comment count for a request
+    public async Task<int> GetCommentCountAsync(int requestId)
+    {
+        return await _context.Responses
+            .Where(r => r.RequestId == requestId && !r.isDeleted)
+            .CountAsync();
+    }
+
 
 
 

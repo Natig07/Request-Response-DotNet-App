@@ -14,6 +14,8 @@ namespace DTOs
         public int? ExecutorId { get; set; }
         public UserDto? Executor { get; set; }
 
+        public DateTime? FirstOperationDate { get; set; }
+
 
         public FileEntityDto? File { get; set; }
 

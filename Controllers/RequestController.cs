@@ -1,4 +1,5 @@
 using DTOs;
+using Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Services;
@@ -93,7 +94,7 @@ namespace Controllers
         {
             await _requestService.ChangeReqStat(requestId, newStatusId, UserId);
         }
-
+        [Authorize]
         [HttpPut("take/{executorId}/{reqId}")]
         public async Task<IActionResult> TakeRequest(int executorId, int reqId)
         {
@@ -101,6 +102,85 @@ namespace Controllers
 
             return Ok(new { message = "Request successfully taken" });
         }
+        [Authorize]
+        [HttpGet("filter")]
+        public async Task<IActionResult> FilterRequests(
+            [FromQuery] int? categoryId,
+            [FromQuery] int? statusId,
+            [FromQuery] int? priorityId,
+            [FromQuery] int? executorId,
+            [FromQuery] string? search,
+            [FromQuery] DateTime? fromDate,
+            [FromQuery] DateTime? toDate,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 5,
+            [FromQuery] string? sortField = null,
+            [FromQuery] string? sortDirection = null
+        )
+        {
+            try
+            {
+                var filter = new RequestFilterDto
+                {
+                    CategoryId = categoryId,
+                    StatusId = statusId,
+                    PriorityId = priorityId,
+                    ExecutorId = executorId,
+                    Search = search,
+                    FromDate = fromDate,
+                    ToDate = toDate,
+                    Page = page,
+                    PageSize = pageSize,
+                    SortField = sortField,
+                    SortDirection = sortDirection
+                };
+
+                var result = await _requestService.GetFilteredAsync(filter);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching filtered requests");
+                return StatusCode(500, new { message = "Error fetching filtered requests", error = ex.Message });
+            }
+        }
+
+        // Add to your RequestsController
+
+        [HttpGet("{id}/section/{section}")]
+        public async Task<ActionResult<RequestDto>> GetRequestBySection(int id, string section)
+        {
+            try
+            {
+                var request = await _requestService.GetRequestWithDetails(id, section);
+                return Ok(request);
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching request {RequestId} with section {Section}", id, section);
+                return StatusCode(500, new { message = "Error fetching request" });
+            }
+        }
+
+        [HttpGet("{id}/comment-count")]
+        public async Task<ActionResult<int>> GetCommentCount(int id)
+        {
+            try
+            {
+                var count = await _requestService.GetCommentCountAsync(id);
+                return Ok(new { count });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching comment count for request {RequestId}", id);
+                return StatusCode(500, new { message = "Error fetching comment count" });
+            }
+        }
+
 
 
 
